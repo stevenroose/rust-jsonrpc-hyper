@@ -17,7 +17,7 @@ extern crate http;
 extern crate hyper;
 extern crate jsonrpc;
 
-use std::{error, fmt};
+use std::{error, fmt, io};
 
 /// Local error type.
 #[derive(Debug)]
@@ -93,13 +93,33 @@ impl jsonrpc::client::HttpRoundTripper for HyperRoundTripper {
 			}
 			hyper_headers.append_raw(key.unwrap().as_str().to_owned(), value.as_bytes().to_vec());
 		}
+		let retry_headers = hyper_headers.clone();
 
-		let response = self
-			.0
-			.post(&request.uri().to_string())
-			.headers(hyper_headers)
-			.body(*request.body())
-			.send()?;
+		let hyper_request =
+			self.0.post(&request.uri().to_string()).headers(hyper_headers).body(*request.body());
+		let response = match hyper_request.send() {
+			Ok(r) => Ok(r),
+			// Hyper maintains a pool of TCP connections to its various clients,
+			// and when one drops it cannot tell until it tries sending. In this
+			// case the appropriate thing is to re-send, which will cause hyper
+			// to open a new connection. Jonathan Reem explained this to me on
+			// IRC, citing vague technical reasons that the library itself cannot
+			// do the retry transparently.
+			Err(hyper::error::Error::Io(e)) => {
+				if e.kind() == io::ErrorKind::BrokenPipe
+					|| e.kind() == io::ErrorKind::ConnectionAborted
+				{
+					self.0
+						.post(&request.uri().to_string())
+						.headers(retry_headers)
+						.body(*request.body())
+						.send()
+				} else {
+					Err(hyper::error::Error::Io(e))
+				}
+			}
+			Err(e) => Err(e),
+		}?;
 
 		let mut response_builder = http::response::Response::builder();
 		response_builder
