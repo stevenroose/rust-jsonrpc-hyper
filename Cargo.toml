@@ -1,0 +1,23 @@
+[package]
+name = "jsonrpc-hyper"
+version = "0.10.0"
+authors = ["Steven Roose <steven@stevenroose.org"]
+license = "CC0-1.0"
+homepage = "https://github.com/stevenroose/rust-jsonrpc-hyper/"
+repository = "https://github.com/stevenroose/rust-jsonrpc-hyper/"
+documentation = "https://docs.rs/jsonrpc-hyper/"
+description = "Implementation of the jsonrpc crate using Hyper."
+keywords = [ "json", "http", "jsonrpc", "hyper" ]
+readme	 = "README.md"
+
+[lib]
+name = "jsonrpc_hyper"
+path = "src/lib.rs"
+
+[dependencies]
+http = "0.1"
+jsonrpc = "0.10" # needs version update first
+hyper = "0.10"
+
+[patch.crates-io]
+jsonrpc = { path = "/home/steven/code/rust/jsonrpc" }
